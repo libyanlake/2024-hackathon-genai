@@ -24,17 +24,12 @@ def preprocess_image(image_path):
     img_array = preprocess_input(img_array)
     return img_array
 
-# Function to make predictions
 def predict_image(image_path):
-    # Preprocess the image
     preprocessed_image = preprocess_image(image_path)
-    # Get predictions
     predictions = model.predict(preprocessed_image)
-    # Decode the predictions to human-readable labels
     decoded_predictions = decode_predictions(predictions, top=3)[0]
     return decoded_predictions
 
-# Endpoint to receive and classify images
 @app.route('/predict', methods=['POST'])
 def predict():
     if 'image' not in request.files:
@@ -42,10 +37,9 @@ def predict():
     
     file = request.files['image']
     image_path = os.path.join('/tmp', file.filename)  # Temporary storage for the uploaded image
-    file.save(image_path)  # Save the uploaded image
+    file.save(image_path)
 
     try:
-        # Make prediction
         predictions = predict_image(image_path)
         # Format the predictions for JSON response
         results = [
