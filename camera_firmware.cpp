@@ -45,7 +45,6 @@ int capture_interval = 5;
             headers = curl_slist_append(headers, authHeader.c_str());
             curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
 
-            // Set up a write callback to handle the response
             std::string response;
             curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, [](void *ptr, size_t size, size_t nmemb, void *userdata) {
                 ((std::string*)userdata)->append((char*)ptr, size * nmemb);
@@ -74,7 +73,7 @@ int capture_interval = 5;
             curl_easy_setopt(curl, CURLOPT_URL, fullUrl.c_str());
             curl_easy_setopt(curl, CURLOPT_CUSTOMREQUEST, "DELETE");
 
-            // Set the authorization header
+            // auth header
             std::string authHeader = "Authorization: Bearer " + authToken;
             struct curl_slist *headers = NULL;
             headers = curl_slist_append(headers, authHeader.c_str());
@@ -91,26 +90,22 @@ int capture_interval = 5;
             curl_slist_free_all(headers);
         }
     }
-    // Function to handle the response from cURL
     size_t WriteCallback2(void *contents, size_t size, size_t nmemb, std::string *output) {
         size_t totalSize = size * nmemb;
         output->append(static_cast<char*>(contents), totalSize);
         return totalSize;
     }
 
-    // Function to check device reachability status
     bool checkDeviceReachability(const std::string& url, const std::string& phoneNumber,
                                 const std::string& networkAccessIdentifier, const std::string& ipv4Address,
                                 const std::string& ipv6Address) {
 
-        // Initialize cURL
         CURL *curl = curl_easy_init();
         if (!curl) {
             std::cerr << "cURL initialization failed!" << std::endl;
             return false;
         }
 
-        // Prepare the JSON payload
         nlohmann::json requestBody = {
             {"device", {
                 {"phoneNumber", phoneNumber},
@@ -123,7 +118,7 @@ int capture_interval = 5;
             }}
         };
 
-        // Convert the JSON object to a string
+        // Convert JSON object to string
         std::string jsonData = requestBody.dump();
 
         // Set up cURL options
@@ -140,7 +135,6 @@ int capture_interval = 5;
         headers = curl_slist_append(headers, authHeader.c_str());
         curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
 
-        // Perform the request and check for errors
         CURLcode res = curl_easy_perform(curl);
         if (res != CURLE_OK) {
             std::cerr << "cURL request failed: " << curl_easy_strerror(res) << std::endl;
@@ -148,7 +142,7 @@ int capture_interval = 5;
             return false;
         }
 
-        // Parse the JSON response
+        // Parse JSON response
         try {
             auto jsonResponse = nlohmann::json::parse(response);
             std::string reachabilityStatus = jsonResponse["reachabilityStatus"];
@@ -157,7 +151,7 @@ int capture_interval = 5;
             std::cout << "Last Status Time: " << lastStatusTime << std::endl;
             std::cout << "Reachability Status: " << reachabilityStatus << std::endl;
 
-            // Check the reachability status
+            // Check reachability status
             if (reachabilityStatus == "CONNECTED_SMS" || reachabilityStatus == "CONNECTED_DATA") {
                 curl_easy_cleanup(curl);
                 return true;
@@ -191,7 +185,7 @@ bool sendImage(const cv::Mat& frame, std::string& server_response) {
     std::string response;
     std::string filename = "image.jpg";
 
-    // Temporary file to write the image
+    // Temp. file to write the image
     FILE* tmpfile = fopen(filename.c_str(), "wb");
     if (!tmpfile) {
         curl_easy_cleanup(curl);
@@ -204,7 +198,7 @@ bool sendImage(const cv::Mat& frame, std::string& server_response) {
     curl_mime* form = curl_mime_init(curl);
     curl_mimepart* field = curl_mime_addpart(form);
 
-    // Add the image file to the form
+    // Add image file to the form
     curl_mime_name(field, "image");
     curl_mime_filedata(field, filename.c_str());
 
@@ -278,50 +272,50 @@ void saveDatabase(const std::unordered_map<std::string, int>& database, const st
 #endif
 
 int main() {
-    #ifdef CAMARA
-    std::string apiUrl = "https://api.orange.com/camara/orange-lab/device-reachability-status/v0/retrieve";
-    std::string phoneNumber = "+123456789";
-    std::string networkAccessIdentifier = "123456789@domain.com";
-    std::string ipv4Address = "84.125.93.10";
-    std::string ipv6Address = "2001:db8:85a3:8d3:1319:8a2e:370:7344";
+        #ifdef CAMARA
+            std::string apiUrl = "https://api.orange.com/camara/orange-lab/device-reachability-status/v0/retrieve";
+            std::string phoneNumber = "+123456789";
+            std::string networkAccessIdentifier = "123456789@domain.com";
+            std::string ipv4Address = "84.125.93.10";
+            std::string ipv6Address = "2001:db8:85a3:8d3:1319:8a2e:370:7344";
 
-    if (checkDeviceReachability(apiUrl, phoneNumber, networkAccessIdentifier, ipv4Address, ipv6Address)) {
-        std::cout << "Device is reachable!" << std::endl;
-    } else {
-        std::cout << "Device is not reachable." << std::endl;
-    // if not reachable, init QoD session
+            if (checkDeviceReachability(apiUrl, phoneNumber, networkAccessIdentifier, ipv4Address, ipv6Address)) {
+                std::cout << "Device is reachable!" << std::endl;
+            } else {
+                std::cout << "Device is not reachable." << std::endl;
+            // if not reachable, init QoD session
 
-    apiUrl = "https://api.orange.com/camara/quality-on-demand/orange-lab/v0/sessions";
-    std::string jsonData = R"({
-        "duration": 3600,
-        "device": {
-            "ipv4Address": {
-                "publicAddress": "84.125.93.10",
-                "publicPort": 59765
+            apiUrl = "https://api.orange.com/camara/quality-on-demand/orange-lab/v0/sessions";
+            std::string jsonData = R"({
+                "duration": 3600,
+                "device": {
+                    "ipv4Address": {
+                        "publicAddress": "84.125.93.10",
+                        "publicPort": 59765
+                    }
+                },
+                "applicationServer": {
+                    "ipv4Address": "192.168.0.1/24"
+                },
+                "qosProfile": "QCI_1_voice",
+                "webhook": {
+                    "notificationUrl": "https://application-server.com",
+                    "notificationAuthToken": "c8974e592c2fa383d4a3960714"
+                }
+            })";
+
+            std::string response = createQoDSession(apiUrl, AUTHTOKEN_QOD, jsonData);
+
+            if (!response.empty()) {
+                std::cout << "QoD Session Creation Response: " << response << std::endl;
             }
-        },
-        "applicationServer": {
-            "ipv4Address": "192.168.0.1/24"
-        },
-        "qosProfile": "QCI_1_voice",
-        "webhook": {
-            "notificationUrl": "https://application-server.com",
-            "notificationAuthToken": "c8974e592c2fa383d4a3960714"
         }
-    })";
-
-    std::string response = createQoDSession(apiUrl, AUTHTOKEN_QOD, jsonData);
-
-    if (!response.empty()) {
-        std::cout << "QoD Session Creation Response: " << response << std::endl;
-    }
-}
-#endif
+    #endif
 
     std::unordered_map<std::string, int> database = loadDatabase(database_file);
 
 #ifdef DEBUG_MODE
-    // Debug mode: Send images from the folder
+    // Debug mode: Send images from defined folder
     std::vector<std::string> images = getImagesFromFolder(debug_folder);
     for (const auto& image_path : images) {
         cv::Mat frame = cv::imread(image_path);
@@ -332,12 +326,10 @@ int main() {
 
         std::string server_response;
         if (sendImage(frame, server_response)) {
-            // Increment the counter for the animal
+            // increment the counter for the animal
             database[server_response]++;
 
             saveDatabase(database, database_file);
-
-            // Print sighted and counter without a newline between them
             std::cout << "Sighted: " << server_response 
                       << ", Total: " << database[server_response] << "\n";
         } else {
@@ -373,7 +365,6 @@ int main() {
 
             saveDatabase(database, database_file);
 
-            // Print sighted and counter without a newline between them
             std::cout << "Sighted: " << server_response 
                       << ", Total: " << database[server_response] << "\n";
         } else {
@@ -388,7 +379,7 @@ int main() {
     #ifdef CAMARA
         closeQoDSession(apiUrl, authToken, sessionId); // close session when closed, so you don't overbill customer
     #endif
-    cv::destroyAllWindows(); // Close the camera feed window
+    cv::destroyAllWindows(); // close the camera feed window
 #endif
 
     return 0;

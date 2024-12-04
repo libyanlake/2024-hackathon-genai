@@ -1,26 +1,25 @@
+# backend script:
+
 from flask import Flask, request, jsonify
 import tensorflow as tf
 from tensorflow.keras.applications import EfficientNetB0
 from tensorflow.keras.applications.efficientnet import preprocess_input, decode_predictions
 from tensorflow.keras.preprocessing.image import load_img, img_to_array
 import numpy as np
+import tempfile
 import os
+from pyngrok import ngrok # if not using localhost
 
-# Initialize Flask app
 app = Flask(__name__)
-
-# Load the EfficientNetB0 model pre-trained on ImageNet
 model = EfficientNetB0(weights='imagenet')
 
 # Function to preprocess the input image
 def preprocess_image(image_path):
-    # Load the image with target size 224x224 (EfficientNetB0 input size)
     img = load_img(image_path, target_size=(224, 224))
     # Convert the image to a numpy array
     img_array = img_to_array(img)
     # Add a batch dimension (EfficientNetB0 expects a batch of images)
     img_array = np.expand_dims(img_array, axis=0)
-    # Preprocess the image (normalizes input as expected by EfficientNetB0)
     img_array = preprocess_input(img_array)
     return img_array
 
@@ -28,31 +27,36 @@ def predict_image(image_path):
     preprocessed_image = preprocess_image(image_path)
     predictions = model.predict(preprocessed_image)
     decoded_predictions = decode_predictions(predictions, top=3)[0]
-    return decoded_predictions
+    return decoded_predictions[0]
 
 @app.route('/predict', methods=['POST'])
 def predict():
     if 'image' not in request.files:
-        return jsonify({'error': 'No image file provided'}), 400
-    
+        return 'No image file provided', 400
+
     file = request.files['image']
-    image_path = os.path.join('/tmp', file.filename)  # Temporary storage for the uploaded image
-    file.save(image_path)
+
+    if not file.filename.lower().endswith(('png', 'jpg', 'jpeg')):
+        return 'Unsupported file type. Please upload a PNG, JPG, or JPEG image.', 400
 
     try:
-        predictions = predict_image(image_path)
-        # Format the predictions for JSON response
-        results = [
-            {'label': label, 'description': description, 'score': float(score)}
-            for label, description, score in predictions
-        ]
-        return jsonify(results)
+        with tempfile.NamedTemporaryFile(delete=False, suffix='.jpg') as temp_file:
+            file.save(temp_file.name)
+            image_path = temp_file.name
+
+        prediction = predict_image(image_path)
+        return prediction[1]  # Return only the description (e.g., "African_elephant")
+
     except Exception as e:
-        return jsonify({'error': str(e)}), 500
+        return str(e), 500
+
     finally:
-        if os.path.exists(image_path):  # Clean up the temporary file
+        if os.path.exists(image_path):
             os.remove(image_path)
 
-# Run the Flask app
+
+
 if __name__ == '__main__':
-    app.run(debug=True)
+    public_url = ngrok.connect(5000) # if not using localhost
+    print(f"Public URL: {public_url}") # ^
+    app.run()
